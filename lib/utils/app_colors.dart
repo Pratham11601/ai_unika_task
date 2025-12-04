@@ -1,0 +1,37 @@
+import 'package:flutter/material.dart';
+
+class ColorsForApp {
+  ColorsForApp._();
+  // Theme Color
+  static const Color primaryColor = Color(0xffee8819);
+  static const Color primaryDarkColor = Color(0xFFfa6801);
+  static const Color secondaryColor = Color(0xff0ae9f1);
+
+  static const Color primaryLightColor = Color(0xffff646c);
+  static const Color primaryExtraLightColor = Color(0xffffbdc0);
+  static const Color primaryExtraLightShadeColor = Color(0xffFFE5E5);
+
+  static const Color alertColor = Color(0xfff63141);
+  static const Color secondaryLightColor = Color(0xff6acc9d);
+  static const Color secondaryExtraLightColor = Color(0xffa2d9be);
+  static const Color tertiaryColor = Color(0xFFABABAB);
+  static const Color tertiaryLightColor = Color(0xFFC7C7C7);
+  static const Color tertiaryExtraLightColor = Color(0xFFEFEFEF);
+  static const Color colorBlue = Color(0xFF2563EB);
+  static const Color colorVerifyGreen = Color(0xFF10B981);
+
+  // App color
+  static const Color shadowColor = Color(0xffd5d5d5);
+  static const Color subTitleColor = Color(0xff9f9f9f);
+  static const Color backGroundColor = Color(0xffffffff);
+  static const Color yellow = Colors.yellow;
+  static Color blackColor = Colors.black;
+  // gradient colors for login screen
+  static const Color gradientTop = Color(0xFFFF3E2E); // deep orange-red
+  static const Color gradientBottom = Color(0xFFfc8503); // lighter orange
+  static const Color cardStroke = Color(0xFFE9E9EF);
+  static const Color sectionStroke = Color(0xFFE7E7ED);
+  static const Color headline = Color(0xFF111111);
+  static const Color subtle = Color(0xFF6B7280);
+  static const Color cta = Color(0xFFFF9B86);
+}
