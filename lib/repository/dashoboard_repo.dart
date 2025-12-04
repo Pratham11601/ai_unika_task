@@ -1,7 +1,7 @@
 import '../api/api_manager.dart';
 
-class AuthRepository {
-  AuthRepository._();
+class DashboardRepository {
+  DashboardRepository._();
   static APIManager apiManager = APIManager();
 
 }
