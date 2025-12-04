@@ -4,5 +4,4 @@ class AuthRepository {
   AuthRepository._();
   static APIManager apiManager = APIManager();
 
-
 }
