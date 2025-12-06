@@ -5,7 +5,7 @@ class ColorsForApp {
   // Theme Color
   static const Color primaryColor = Color(0xffee8819);
   static const Color primaryDarkColor = Color(0xFFfa6801);
-  static const Color secondaryColor = Color(0xff0ae9f1);
+  static const Color secondaryColor = Color(0xfff16874);
 
   static const Color primaryLightColor = Color(0xffff646c);
   static const Color primaryExtraLightColor = Color(0xffffbdc0);

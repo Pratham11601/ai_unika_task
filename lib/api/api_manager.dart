@@ -2,27 +2,30 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
+import 'package:awesome_dio_interceptor/awesome_dio_interceptor.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/get_navigation.dart';
 import '../controller/app_controller.dart';
 import '../utils/config.dart';
 import '../widgets/common_loader_widget.dart';
-import '../widgets/toast_message.dart';
+import '../widgets/snackbar.dart';
 import 'api_exception.dart';
+
 
 class APIManager {
   static late AppController _appController;
-  static APIManager? _apiManager;
-
-  static void init(AppController appController) {
+  static late APIManager _apiManager;
+  final LoaderService _loaderService = LoaderService();
+  factory APIManager.init(AppController appController) {
     _appController = appController;
     _apiManager = APIManager._internal();
+    return _apiManager;
   }
 
   factory APIManager() {
-    if (_apiManager != null) {
-      return _apiManager!;
-    }
-    throw AssertionError('Initiate api manager');
+    return _apiManager;
   }
 
   static CancelToken cancelToken = CancelToken();
@@ -36,21 +39,29 @@ class APIManager {
   );
 
   APIManager._internal() {
-    // Add Interceptors for common tasks (authentication, caching, etc.)
-    _dio.interceptors.add(
+    _dio.interceptors.addAll([
       InterceptorsWrapper(
         onRequest: (options, handler) async {
           options.headers['Content-Type'] = 'application/json';
-          if (getAuthToken.isNotEmpty) options.headers['Authorization'] = 'Bearer $getAuthToken';
+          if (getAuthToken.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $getAuthToken';
+          }
+
           return handler.next(options);
         },
       ),
-    );
+      AwesomeDioInterceptor(
+        logRequestTimeout: false,
+        logResponseHeaders: false,
+        logger: log,
+      ),
+    ]);
   }
 
   // Function to check & return if the token is valid
   String get getAuthToken {
-    return _appController.userToken.toString();
+    // return empty string when token is null to avoid 'Bearer null' headers
+    return _appController.userToken ?? '';
   }
 
   // GET
@@ -60,15 +71,53 @@ class APIManager {
     bool showLoading = true,
     int timeOut = 20,
   }) async {
+    debugPrint("Internet Status ${_appController.connection.hasInternet}");
+
+    // Check internet is on or not
+
+    // if (showLoading) Loader.instance.showLoader();
+    try {
+      debugPrint('------------------ $url');
+      queryParameters?.removeWhere((key, value) => value == null || value == 0);
+
+      final response = await _dio
+          .get(url, queryParameters: queryParameters, cancelToken: cancelToken)
+          .timeout(
+        Duration(seconds: timeOut),
+        onTimeout: () {
+          throw TimeoutException(message: 'Timeout');
+        },
+      );
+      var responseJson = _response(response);
+      return responseJson;
+    } on TimeoutException {
+      handleTimeoutException();
+      return null;
+    } on DioException catch (error) {
+      handleDioError(error);
+      return null;
+    } finally {
+      // Loader.instance.removeLoader();
+    }
+  }
+
+  Future<dynamic> postFormAPICall({
+    required String url,
+    required Map<String, dynamic> params,
+    Map<String, dynamic>? queryParameters,
+    bool showLoading = true,
+    int timeOut = 60,
+  }) async {
     // Check internet is on or not
     if (_appController.connection.hasInternet) {
-      if (showLoading) Loader.instance.showLoader();
+      if (showLoading) _loaderService.showLoader();
       try {
-        // print('------------------ $url');
         final response = await _dio
-            .get(
+            .post(
           url,
+          data: FormData.fromMap(params),
           queryParameters: queryParameters,
+
           cancelToken: cancelToken,
         )
             .timeout(
@@ -77,7 +126,6 @@ class APIManager {
             throw TimeoutException(message: 'Timeout');
           },
         );
-        logAPICallDetails(response);
         var responseJson = _response(response);
         return responseJson;
       } on TimeoutException {
@@ -87,8 +135,9 @@ class APIManager {
         handleDioError(error);
         return null;
       } finally {
-        print('finally');
-        Loader.instance.removeLoader();
+        debugPrint("finally in postFormAPICall");
+        if (showLoading) _loaderService.hideLoader();
+
       }
     } else {
       handleNoInternet();
@@ -104,17 +153,60 @@ class APIManager {
     bool showLoading = true,
     int timeOut = 20,
   }) async {
+    if (showLoading) _loaderService.showLoader();
+
+    try {
+      final response = await _dio
+          .post(
+        url,
+        data: params,
+        queryParameters: queryParameters,
+
+        cancelToken: cancelToken,
+      )
+          .timeout(
+        Duration(seconds: timeOut),
+        onTimeout: () {
+          throw TimeoutException(message: 'Timeout');
+        },
+      );
+
+      debugPrint("URL  --> > >  + $url");
+
+      var responseJson = _response(response);
+      return responseJson;
+    } on TimeoutException {
+      handleTimeoutException();
+      return null;
+    } on DioException catch (error) {
+      handleDioError(error);
+      return null;
+    } finally {
+      if (showLoading) _loaderService.hideLoader();
+    }
+  }
+
+
+
+  // Delete
+  Future<dynamic> deleteAPICall({
+    required String url,
+    var params,
+    Map<String, dynamic>? queryParameters,
+    bool showLoading = true,
+    int timeOut = 20,
+  }) async {
     // Check internet is on or not
-      // print('------------------ $url');
+    if (_appController.connection.hasInternet) {
+      // if (showLoading) Loader.instance.showLoader();
+
       try {
         final response = await _dio
-            .post(
+            .delete(
           url,
-          data: params,
           queryParameters: queryParameters,
-          // options: Options(
-          //   headers: {'Content-Type': 'application/json'},
-          // ),
+          data: params,
+
           cancelToken: cancelToken,
         )
             .timeout(
@@ -123,7 +215,6 @@ class APIManager {
             throw TimeoutException(message: 'Timeout');
           },
         );
-        logAPICallDetails(response);
         var responseJson = _response(response);
         return responseJson;
       } on TimeoutException {
@@ -132,9 +223,11 @@ class APIManager {
       } on DioException catch (error) {
         handleDioError(error);
         return null;
-      } finally {
-        if (showLoading) Loader.instance.removeLoader();
-      }
+      } finally {}
+    } else {
+      handleNoInternet();
+      return null;
+    }
   }
 
   // PUT
@@ -154,9 +247,7 @@ class APIManager {
           url,
           data: params,
           queryParameters: queryParameters,
-          options: Options(
-            headers: {'Content-Type': 'application/json'},
-          ),
+          options: Options(headers: {'Content-Type': 'application/json'}),
           cancelToken: cancelToken,
         )
             .timeout(
@@ -165,7 +256,6 @@ class APIManager {
             throw TimeoutException(message: 'Timeout');
           },
         );
-        logAPICallDetails(response);
         var responseJson = _response(response);
         return responseJson;
       } on TimeoutException {
@@ -175,8 +265,8 @@ class APIManager {
         handleDioError(error);
         return null;
       } finally {
-        print('finally');
-        Loader.instance.removeLoader();
+        debugPrint('finally');
+        // Loader.instance.removeLoader();
       }
     } else {
       handleNoInternet();
@@ -212,7 +302,6 @@ class APIManager {
             throw TimeoutException(message: 'Timeout');
           },
         );
-        logAPICallDetails(response);
         var responseJson = _response(response);
         return responseJson;
       } on TimeoutException {
@@ -222,8 +311,8 @@ class APIManager {
         handleDioError(error);
         return null;
       } finally {
-        print('finally');
-        Loader.instance.removeLoader();
+        debugPrint('finally');
+        // Loader.instance.removeLoader();
       }
     } else {
       handleNoInternet();
@@ -231,7 +320,8 @@ class APIManager {
     }
   }
 
-  // MULTIPART POST API call
+
+// MULTIPART Post API call
   Future<dynamic> multipartPostAPICall({
     required String url,
     String? fileKey,
@@ -241,45 +331,66 @@ class APIManager {
     bool showLoading = true,
     int timeOut = 60,
   }) async {
-    // Check internet is on or not
-    if (_appController.connection.hasInternet) {
-      Loader.instance.showLoader();
-      // showLoaderIfNeeded(showLoading);
-      try {
-        final formData = FormData.fromMap({
-          ...params,
-          if (fileKey != null && file != null) fileKey: await MultipartFile.fromFile(file.path, filename: file.path.split('/').last),
-        });
-        final response = await _dio
-            .post(
-          url,
-          data: formData,
-          queryParameters: queryParameters,
-          options: Options(
-            headers: {'Content-Type': 'multipart/form-data'},
-          ),
-          cancelToken: cancelToken,
-        )
-            .timeout(
-          Duration(seconds: timeOut),
-          onTimeout: () {
-            throw TimeoutException(message: 'Timeout');
-          },
-        );
-        var responseJson = _response(response);
-        logAPICallDetails(response);
-        return responseJson;
-      } on TimeoutException {
-        handleTimeoutException();
-      } on DioException catch (error) {
-        handleDioError(error);
-      } finally {
-        Loader.instance.removeLoader();
-      }
-    }
+    if (showLoading) _loaderService.showLoader();
 
-    return null;
+    try {
+      // Clean params: remove null or empty strings
+      final Map<String, dynamic> cleanedParams = Map.from(params)
+        ..removeWhere((key, value) => value == null || (value is String && value.isEmpty));
+
+      // Create form map
+      final Map<String, dynamic> formMap = Map.from(cleanedParams);
+
+      // Add image if present
+      if (fileKey != null && file != null) {
+        // Extract file name WITHOUT using 'path' package
+        final String fileName = file.path.split('/').last;
+
+        formMap[fileKey] = await MultipartFile.fromFile(
+          file.path,
+          filename: fileName,
+        );
+      }
+
+      final formData = FormData.fromMap(formMap);
+
+      final response = await _dio
+          .post(
+        url,
+        data: formData,
+        queryParameters: queryParameters,
+        options: Options(
+          // DO NOT manually set Content-Type; Dio handles multipart boundaries
+          headers: {
+            'Accept': 'application/json',
+          },
+        ),
+        cancelToken: cancelToken,
+      )
+          .timeout(
+        Duration(seconds: timeOut),
+        onTimeout: () {
+          throw TimeoutException(message: 'Timeout');
+        },
+      );
+
+      var responseJson = _response(response);
+      return responseJson;
+    } on TimeoutException {
+      handleTimeoutException();
+      return null;
+    } on DioException catch (error) {
+      handleDioError(error);
+      return null;
+    } catch (e) {
+      debugPrint("Unexpected multipart error: $e");
+      return null;
+    } finally {
+      if (showLoading) _loaderService.hideLoader();
+    }
   }
+
+
 
   //MULTIPART PUT API call
   Future<dynamic> multipartPutAPICall({
@@ -290,67 +401,69 @@ class APIManager {
     Map<String, dynamic>? queryParameters,
     bool showLoading = true,
     int timeOut = 60,
+    // Optional: provide a callback to receive upload progress (sent, total)
+    void Function(int sent, int total)? onSendProgress,
   }) async {
-    // Check internet is on or not
-    if (_appController.connection.hasInternet) {
-      Loader.instance.showLoader();
-      // showLoaderIfNeeded(showLoading);
-      try {
-        final formData = FormData.fromMap({
-          ...params,
-          if (fileKey != null && file != null) fileKey: await MultipartFile.fromFile(file.path, filename: file.path.split('/').last),
-        });
-        final response = await _dio
-            .put(
-          url,
-          data: formData,
-          queryParameters: queryParameters,
-          options: Options(
-            headers: {'Content-Type': 'multipart/form-data'},
+    if (showLoading) _loaderService.showLoader();
+
+    try {
+      final formData = FormData.fromMap({
+        ...params,
+        if (fileKey != null && file != null)
+          fileKey: await MultipartFile.fromFile(
+            file.path,
+            filename: file.path.split('/').last,
           ),
-          cancelToken: cancelToken,
-        )
-            .timeout(
-          Duration(seconds: timeOut),
-          onTimeout: () {
-            throw TimeoutException(message: 'Timeout');
-          },
-        );
-        var responseJson = _response(response);
-        logAPICallDetails(response);
-        return responseJson;
-      } on TimeoutException {
-        handleTimeoutException();
-      } on DioException catch (error) {
-        handleDioError(error);
-      } finally {
-        Loader.instance.removeLoader();
-      }
+      });
+
+      final response = await _dio
+          .put(
+        url,
+        data: formData,
+        queryParameters: queryParameters,
+        options: Options(
+          headers: {'Content-Type': 'multipart/form-data'},
+        ),
+        onSendProgress: onSendProgress,
+        cancelToken: cancelToken,
+      )
+          .timeout(
+        Duration(seconds: timeOut),
+        onTimeout: () {
+          throw TimeoutException(message: 'Timeout');
+        },
+      );
+
+      var responseJson = _response(response);
+      return responseJson;
+    } on TimeoutException {
+      handleTimeoutException();
+      return null;
+    } on DioException catch (error) {
+      handleDioError(error);
+      return null;
+    } finally {
+      if (showLoading) _loaderService.hideLoader();
     }
-    return null;
   }
 
-  // Function to cancel any ongoing requests
+
   void cancelRequests() {
     cancelToken.cancel();
-    cancelToken = CancelToken(); // Reset the cancel token for future requests
+    cancelToken = CancelToken();
   }
 
   void handleNoInternet() {
-    //   if (isNoInternetMessageDisplayed == false) {
-    //     // errorSnackBar(message: noInternetMsg);
-    //     isNoInternetMessageDisplayed = true;
-    //   }
+    _appController.initializeConnectionServices();
   }
 
   void handleSessionExpired() {
-    // if (isSessionExpiredMessageDisplayed == false) {
-    //   // errorSnackBar(message: 'Your session has expired!');
-    //   isSessionExpiredMessageDisplayed = true;
-    // }
+    // JwtConfig.removeLocalUserToken();
+    // Get.offAllNamed(Routes.LOGIN_SCREEN);
   }
 
   void handleDioError(DioException error) {
+    _loaderService.hideLoader();
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
         handleTimeoutException();
@@ -363,6 +476,7 @@ class APIManager {
         break;
       case DioExceptionType.badResponse:
         if (error.response != null) {
+          _loaderService.hideLoader();
           switch (error.response?.statusCode) {
             case 400:
               handleBadRequest(error.response!.data);
@@ -375,18 +489,21 @@ class APIManager {
               break;
             case 404:
               handleNotFound(error.response!.statusMessage ?? '');
-            case 500:
-              ToastUtils.showCustomToast("This has Been By Pass currently for Testing  Purpose");
               break;
             default:
-              handleGenericBadResponse(error.response!.statusCode, error.response!.data);
+              handleGenericBadResponse(
+                error.response!.statusCode,
+                error.response!.data,
+              );
           }
         } else {
-          throw FetchDataException('Received invalid status code: ${error.response?.statusCode}');
+          throw FetchDataException(
+            'Received invalid status code: ${error.response?.statusCode}',
+          );
         }
         break;
       case DioExceptionType.cancel:
-        // errorSnackBar(message: 'Request to API server was cancelled');
+      // errorSnackBar(message: 'Request to API server was cancelled');
         throw FetchDataException('Request to API server was cancelled');
       case DioExceptionType.unknown:
         if (error.error is SocketException) {
@@ -407,117 +524,112 @@ class APIManager {
   }
 
   void handleBadRequest(dynamic data) {
-    final message = data is Map<String, dynamic> && data.containsKey('message') ? data['message'] : data;
+    final message =
+    data is Map<String, dynamic> && data.containsKey('message')
+        ? data['message']
+        : data;
     // errorSnackBar(message: '$message');
+    CustomSnackBar.error(message: message);
     throw BadRequestException(message, 400);
   }
 
   void handleUnauthorized(dynamic data) {
-    final message = data is Map<String, dynamic> && data.containsKey('message') ? data['message'] : data;
-    // errorSnackBar(message: '$message');
-    throw UnauthorizedException(message, 401);
+    CustomSnackBar.error(
+      message: "Please Contact Support ",
+      title: data['message'] ?? "Something went wrong",
+    );
+    // JwtConfig.removeLocalUserToken();
+    throw UnauthorizedException("Logout user", 401);
   }
 
   void handleForbidden(dynamic data) {
-    final message = data is Map<String, dynamic> && data.containsKey('message') ? data['message'] : data;
-    // errorSnackBar(message: '$message');
+    final message =
+    data is Map<String, dynamic> && data.containsKey('message')
+        ? data['message']
+        : data;
     throw UnauthorizedException(message, 403);
   }
 
   void handleNotFound(String message) {
-    // errorSnackBar(message: message);
-
-    ToastUtils.showCustomToast("Not Found $message ");
+    _loaderService.hideLoader();
+    CustomSnackBar.error(message: "Try again later");
     throw FetchDataException(message, 404);
   }
 
-  void handleNot22Found(String message) {
-    // errorSnackBar(message: message);
-
-    ToastUtils.showCustomToast("Not Found $message ");
-
-    throw FetchDataException(message, 422);
-  }
-
   void handleGenericBadResponse(int? statusCode, dynamic data) {
-    // errorSnackBar(message: 'Received invalid status code: $statusCode');
+    _loaderService.hideLoader();
+    CustomSnackBar.error(
+      title: 'Failed to perform action',
+      message: data['message'],
+    );
+
     log('\x1B[91m[Error Response ($statusCode)] => $data\x1B[0m');
     throw FetchDataException('Received invalid status code: $statusCode');
   }
 
   void handleGenericError(error, StackTrace stackTrace) {
     if (error.toString().contains('Connection closed while receiving data')) {
-      // errorSnackBar(message: 'An error occurred while communicating with the server');
-    } else if (error.toString().contains('Connection closed before full header was received')) {
+    } else if (error.toString().contains(
+      'Connection closed before full header was received',
+    )) {
       log('\x1B[91m[Handle Generic Error] => Request Canceled\x1B[0m');
-    } else {
-      // errorSnackBar(message: 'Server error');
     }
     throw FetchDataException('Server Error');
   }
 
   dynamic _response(Response response) async {
     switch (response.statusCode) {
-      // Successfully get api response
+    // Successfully get api response
       case 200:
       case 201:
       case 202:
+        if (response.data is String) {
+          debugPrint("---------------------");
+          return jsonDecode(response.data);
+        }
         return response.data;
-      // No content
+    // No content
       case 204:
         log('\x1B[91m[No Content (204)] => ${response.data}\x1B[0m');
         return;
-      // Bad request need to check url
+    // Bad request need to check url
       case 400:
         handleBadRequest(response.data);
         break;
-      // Unauthorized
+    // Unauthorized
       case 401:
         handleUnauthorized(response.data);
         break;
-      // Authorisation token invalid
+    // Authorisation token invalid
       case 403:
         handleForbidden(response.data);
         break;
-      // Not Found
+    // Not Found
       case 404:
+        handleNotFound(response.data);
         log('\x1B[91m[Not Found (404)] => ${response.data}\x1B[0m');
         break;
-      // Conflict
+
       case 409:
+        handleBadRequest(response.data);
         log('\x1B[91m[Conflict (409)] => ${response.data}\x1B[0m');
         break;
-      // Error occured while communication with server
       case 500:
-      default:
-        // errorSnackBar(message: 'An error occurred while communicating to server with status code: ${response.statusCode}');
-        log('\x1B[91m[Internal Server Error (${response.statusCode})] => ${response.data}\x1B[0m');
-        throw FetchDataException('Error occurred with code : ${response.statusCode}');
-    }
-  }
+        Get.snackbar(
+          "Please Fix Backend ",
+          "Error Occurred due to poor backend ",
+          colorText: Colors.red,
+          backgroundColor: Colors.white,
+        );
 
-  // Helper function to log API call details
-  void logAPICallDetails(Response response) {
-    log('\x1B[90m<--------------------------- [API CALL] --------------------------->\x1B[0m');
-    log('\x1B[94m[Method] => \x1B[95m${response.requestOptions.method}\x1B[0m');
-    log('\x1B[94m[Headers] => \x1B[95m${response.requestOptions.headers}\x1B[0m');
-    log('\x1B[94m[Url] => \x1B[95m${response.requestOptions.uri}\x1B[0m');
-    if (response.requestOptions.method == 'POST' || response.requestOptions.method == 'PUT') {
-      var data = response.requestOptions.data;
-      if (data is FormData) {
-        log('\x1B[94m[Body] => \x1B[95mFormData\x1B[0m');
-        for (var element in data.fields) {
-          log('\x1B[94m[${element.key}] => \x1B[95m${element.value}\x1B[0m');
-        }
-        for (var element in data.files) {
-          log('\x1B[94m[${element.key}] => \x1B[95m${element.value.filename}\x1B[0m');
-        }
-      } else {
-        log('\x1B[94m[Body] => \x1B[95m${json.encode(data)}\x1B[0m');
-      }
-    }
-    if (response.statusCode != null && (response.statusCode! - 200) < 10) {
-      log('\x1B[94m[Response (${response.statusCode})] => \x1B[96m$response\x1B[0m');
+      default:
+      // errorSnackBar(message: 'An error occurred while communicating to server with status code: ${response.statusCode}');
+        log(
+          '\x1B[91m[Internal Server Error (${response.statusCode})] => ${response.data}\x1B[0m',
+        );
+        throw FetchDataException(
+          'Error occurred with code : ${response.statusCode}',
+        );
     }
   }
 }

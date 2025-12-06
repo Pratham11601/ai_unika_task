@@ -1,7 +1,6 @@
 class Routes {
   Routes._();
 
-  //  Onboarding
   static const SPLASH_SCREEN = '/splash_screen';
 
   static const DASHBOARD_SCREEN = '/dashboard_screen';

@@ -1,51 +1,59 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:get/get.dart';
+import 'package:sizer/sizer.dart';
+import '../utils/text_styles.dart';
+import 'constant_widgets.dart';
 
-class Loader {
-  static final Loader _loader = Loader._init();
-  Loader._init() {
-    _initiateEasyLoading();
-  }
-  bool isLoadedActive = false;
-
-  void _initiateEasyLoading() {
-    EasyLoading.instance
-      ..displayDuration = const Duration(milliseconds: 2000)
-      ..indicatorType = EasyLoadingIndicatorType.fadingCircle
-      ..loadingStyle = EasyLoadingStyle.dark
-      ..indicatorSize = 45.0
-      ..radius = 10.0
-      ..progressColor = Colors.yellow
-      ..backgroundColor = Colors.green
-      ..indicatorColor = Colors.yellow
-      ..textColor = Colors.yellow
-      ..maskColor = Colors.blue.withOpacity(0.5)
-      ..userInteractions = true
-      // ..customAnimation = CustomAnimation()
-      ..dismissOnTap = false;
-  }
-
-  static Loader get instance => _loader;
+class LoaderService {
+  static final LoaderService _instance = LoaderService._internal();
+  factory LoaderService() => _instance;
+  LoaderService._internal();
 
   void showLoader() {
-    EasyLoading.show();
-    // if (EasyLoading.isShow) {}
+    if (!(Get.isDialogOpen ?? false)) {
+      Get.dialog(
+        const Center(child: CustomerLoadingNew()),
+        barrierDismissible: false,
+      );
+    }
   }
 
-  void removeLoader() {
-    EasyLoading.dismiss();
-    // if (isLoadedActive) {
-    //   Get.back();
-    //   isLoadedActive = false;
-    // }
+  void hideLoader() {
+    if (Get.isDialogOpen == true) {
+      Get.back();
+    }
   }
 }
 
-class CustomLoader extends StatelessWidget {
-  const CustomLoader({super.key});
+
+
+class CustomerLoadingNew extends StatelessWidget {
+  const CustomerLoadingNew({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Center();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Center(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withAlpha((0.6 * 650).toInt()),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child:   SizedBox(
+              width: 42.w,
+              height:42.w,
+              child: CircularProgressIndicator(),
+            ),
+          ),
+        ),
+        height(0.5.h),
+        Text("Loading Please wait..." ,style: TextHelper.size16.copyWith(
+            fontWeight: FontWeight.w500
+        ), )
+      ],
+    );
   }
 }

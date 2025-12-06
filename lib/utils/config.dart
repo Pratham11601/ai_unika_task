@@ -1,8 +1,8 @@
 class Config {
   Config._();
 
-  static const appName = 'Mplus SOFT ';
+  static const appName = 'AI Unika ';
 
   // Live
-  static const String domainUrl = 'https://2lk9835m-8080.inc1.devtunnels.ms/';
+  static const String domainUrl = 'https://6931b51011a8738467d031c4.mockapi.io/';
 }

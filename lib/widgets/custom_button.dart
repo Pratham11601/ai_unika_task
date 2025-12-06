@@ -12,6 +12,8 @@ class CustomButton extends StatelessWidget {
 
   final Color? buttonColor;
 
+  final bool isLoading;
+
   final BorderSide borderSide;
 
   const CustomButton({
@@ -23,24 +25,33 @@ class CustomButton extends StatelessWidget {
     this.width,
     this.borderRadius,
     this.buttonColor,
+    this.isLoading = false,
     this.borderSide = BorderSide.none,
   });
 
   @override
   Widget build(BuildContext context) {
+    final disabled = onPressed == null || isLoading;
+    final bgColor = buttonColor ?? (borderSide != BorderSide.none ? Theme.of(context).colorScheme.surface : Theme.of(context).colorScheme.primary);
     return MaterialButton(
-      onPressed: onPressed,
+      onPressed: disabled ? null : onPressed,
       minWidth: width,
       elevation: 0,
       clipBehavior: Clip.hardEdge,
-      color: buttonColor ?? (borderSide != BorderSide.none ? Theme.of(context).colorScheme.surface : Theme.of(context).colorScheme.primary),
+      color: disabled ? bgColor.withOpacity(0.5) : bgColor,
       padding: padding,
       shape: RoundedRectangleBorder(borderRadius: borderRadius ?? BorderRadius.circular(22), side: borderSide),
       splashColor: Colors.transparent,
-      child: Text(
-        label,
-        style: TextHelper.size18.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.surface).merge(labelStyle),
-      ),
+      child: isLoading
+          ? SizedBox(
+              height: 18,
+              width: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.surface)),
+            )
+          : Text(
+              label,
+              style: TextHelper.size18.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.surface).merge(labelStyle),
+            ),
     );
   }
 }
