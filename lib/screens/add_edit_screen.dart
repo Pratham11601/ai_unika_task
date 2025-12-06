@@ -103,6 +103,7 @@ class AddEditScreen extends GetView<AddEditController> {
                     : () {
                         if (!_formKey.currentState!.validate()) return;
                         controller.save();
+                        Get.back();
                       },
                 isLoading: controller.saving.value,
                 width: double.infinity,

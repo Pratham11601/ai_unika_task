@@ -17,7 +17,12 @@ class AddEditController extends GetxController {
   late final DashboardController dashboard;
 
   void init(Course? course, int? idx) {
-    dashboard = Get.find<DashboardController>();
+    if (Get.isRegistered<DashboardController>()) {
+      dashboard = Get.find<DashboardController>();
+    } else {
+      // ensure controller exists so we can access categories and methods
+      dashboard = Get.put(DashboardController());
+    }
     original = course;
     index = idx;
     if (course != null) {
@@ -31,11 +36,10 @@ class AddEditController extends GetxController {
   }
 
   Future<void> save() async {
-    if (saving.value) return; // prevent double taps
+    if (saving.value) return;
     saving.value = true;
 
     try {
-      // VALIDATION
       if (titleCtrl.text.trim().isEmpty) {
         saving.value = false;
         Get.snackbar("Error", "Please enter title");
@@ -68,9 +72,11 @@ class AddEditController extends GetxController {
 
       if (index != null) {
         await dashboard.updateCourse(index!, course);
+        await dashboard.loadCourses();
         Get.snackbar("Success", "Course updated successfully");
       } else {
         await dashboard.addCourse(course);
+        await dashboard.loadCourses();
         Get.snackbar("Success", "Course added successfully");
       }
 

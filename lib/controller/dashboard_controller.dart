@@ -95,7 +95,12 @@ class DashboardController extends GetxController {
     final created = await CourseRepository.createCourse(local.toJson());
 
     if (created != null) {
-      final index = courses.indexWhere((c) => c == local);
+      // Try to find the recently inserted local item by matching key fields
+      final index = courses.indexWhere((c) =>
+          c.title == local.title &&
+          c.description == local.description &&
+          c.lessons == local.lessons &&
+          c.category == local.category);
       if (index != -1) {
         courses[index] = created;
         courses.refresh();
