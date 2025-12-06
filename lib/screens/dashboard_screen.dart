@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sizer/sizer.dart';
+import 'package:task_round/utils/text_styles.dart';
 import '../widgets/constant_widgets.dart';
 import '../controller/dashboard_controller.dart';
 import '../routes/routes.dart';
@@ -50,7 +51,7 @@ class DashboardScreen extends GetView<DashboardController> {
                   children: [
                     width(1.w),
                     ChoiceChip(
-                      label: const Text('All'),
+                      label: Text('All',style: TextHelper.size16,),
                       selected: controller.selectedCategory.value == null,
                       onSelected: (_) => controller.setCategory(null),
                     ),
@@ -60,7 +61,7 @@ class DashboardScreen extends GetView<DashboardController> {
                       return Padding(
                         padding: const EdgeInsets.only(right: 8.0),
                         child: ChoiceChip(
-                          label: Text(c),
+                          label: Text(c,style: TextHelper.size16),
                           selected: selected,
                           onSelected: (_) => controller.setCategory(selected ? null : c),
                         ),
